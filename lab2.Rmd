@@ -1,3 +1,20 @@
+---
+title: "Geography 176A"
+author: "[AineRoonan](https://aineroonan.github.io)"
+subtitle: 'Lab 02: COVID-19 Pandemic'
+output:
+  html_document:
+    theme: journal
+---
+
+# fourstates = four %>% 
+#   left_join(region, by = "state") %>%
+#   group_by(state, date) %>%
+#   summarize(newCases, avg, state, State) %>% 
+#   ungroup() 
+# 
+# 
+  
 ```{r}
 library(tidyverse)
 library(knitr)
@@ -40,8 +57,13 @@ knitr::kable(most_cases,
     kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
 
 
+
+```
+
+```{r}
+
 library(readxl)
-pop <- read_excel("data/PopulationEstimates.xls", 
+pop <- read_excel("../data/PopulationEstimates.xls", 
     skip = 2)
 
 popo = 
@@ -59,8 +81,8 @@ cali = popo %>%
   filter(date == max(date)) 
  
 mostNewCasesbypop = cali %>% 
+  arrange((cpcnew)) %>% 
   slice_max(cpcnew, n = 5) %>% 
-  arrange(-cpcnew) %>% 
   select(county, New_Cases_Per_Capita = cpc)
 
 mostCasesbypop = cali %>% 
@@ -90,15 +112,18 @@ fourteen = popo %>%
   summarise(fips, cases, newCases, pop2019) %>% 
   ungroup() %>% 
   unique()
-  
-as.numeric(popo$cases)
+```
+
+```{r, echo= FALSE}
+as.numeric(popo$cases, message = FALSE)
 as.numeric(fourteen$newCases)
 as.numeric(fourteen$pop2019)
 totalCases14 = sum(fourteen$newCases)
-totalcases = sum(total$cases)
 totalpop = sum(fourteen$pop2019)
 New_Cases_Per_OHT = totalCases14/totalpop*100000  
+```
 
+```{r}
 cali2 = popo %>% 
   filter(state.x == "CA") %>% 
   group_by(county) %>% 
@@ -117,9 +142,10 @@ safe = cali2 %>%
 list(safe$county)
 length(safe$county)
 
-#### There are 591,216 new cases cases within California in the last 14 days and 621981 total cases.There are 14 counties that can be considered safe, as they have had less than 100 new cases per 100,000 residents over the past 14 days. 
+#### When I first ran these numbers on Sunday, there were 591,216 new cases cases within California in the last 14 days and 621981 total cases.There were 14 counties that could be considered safe, as they have had less than 100 new cases per 100,000 residents over the past 14 days, but I can see that these numbers have changed, as there are only 13 safe counties now, as is represented by the length of safe$county. Total number of cases is represented by the "totalcases" value and "totalCases14" represents how many new cases there were within California in the last 14 days. 
+```
 
-
+```{r}
 #Question 2
 four = covid %>% 
   group_by(state, date) %>% 
@@ -143,7 +169,7 @@ graph =
        x = "Date",
        y = "New Cases",
        caption = "Lab 02")
-  ggsave(graph, file = "img/graphDNC.png")
+ # ggsave(graph, file = "img/graphDNC.png")
 
 graph2 =
   four %>%
@@ -156,9 +182,10 @@ graph2 =
        x = "Date",
        y = "Average Weekly Increases",
        caption = "Lab 02")
-  ggsave(graph2, file = "img/graph2AWI.png")
+ # ggsave(graph2, file = "img/graph2AWI.png")
 
   ####The story of raw case counts can be misleading. To understand why, lets explore the cases per capita of each state. To do this, join the state COVID data to the USDA population estimates and calculate the newcases/totalpopulation. Additionally, calculate the 7-day rolling mean of the new cases per capita counts. This is a tricky task and will take some thought, time, and modification to existing code (most likley)!
+
 region = data.frame(state = state.name, State = state.abb)
 
 fourstates = four %>% 
@@ -172,7 +199,9 @@ fourpop = popo %>%
   group_by(State,date()) %>% 
   filter(State == "CA" | State == "NY" | State == "LA" | State == "FL") %>%
   ungroup() %>% 
-  full_join(fourstates, by = "State")
+  group_by(State) %>% 
+  right_join(fourstates, by = "date") %>% 
+  unique()
   
 summary = fourpop %>% 
   group_by(date.x) %>% 

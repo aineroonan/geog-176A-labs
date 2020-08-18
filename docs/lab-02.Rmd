@@ -69,6 +69,12 @@ cali = popo %>%
   ungroup() %>% 
   filter(date == max(date)) 
  
+tot = cali %>% 
+  group_by(date = max(date)) 
+  
+  totalcases = sum(tot$cases)
+  totalnewCases = sum(cali$newCases)
+
 mostNewCasesbypop = cali %>% 
   arrange((cpcnew)) %>% 
   slice_max(cpcnew, n = 5) %>% 
@@ -109,7 +115,7 @@ fourteen = popo %>%
 ```
 
 
-#### When I first ran these numbers on Sunday, there were 591,216 new cases cases within California in the last 14 days and 621981 total cases.There were 14 counties that could be considered safe, as they have had less than 100 new cases per 100,000 residents over the past 14 days, but I can see that these numbers have changed, as there are only 13 safe counties now, as is represented by the length of safe$county. Total number of cases is represented by the "totalcases" value and "totalCases14" represents how many new cases there were within California in the last 14 days. 
+#### When I first ran these numbers on Sunday, there were 591,216 new cases cases within California in the last 14 days and 621981 total cases.There were 14 counties that could be considered safe, as they have had less than 100 new cases per 100,000 residents over the past 14 days, but I can see that these numbers have changed, as there are only 13 safe counties now, as is represented by the length of safe$county. Total number of cases is represented by the "totalcases" value and "totalnewCases" represents how many new cases there were within California in the last 14 days. 
 
 ```{r}
 #Question 2
@@ -186,3 +192,13 @@ ggsave(graph4, file = "../img/graph4.png")
 ```
 
 # I think that scaling by population has a large effect on the analysis as it allows us to look at the data in a more meaningful way. If we were to simply compare states by number of cases, it does not take into account the dangers presented as a whole population as it is limited by arbitrary state lines that do not regard density or population. I purposefully set my y to not be free for ease of comparison and for a visual representation. Louisiana looks significantly worse when regarded per capita, as they have a lower population, so statistically, they are less likely to have as many cases as another state, such as New York or California. On the other hand, California looks better when regarded per capita, as they have a larger population, so they were statistically speaking more likely to have more cases.  
+
+```{r}
+#Question 3
+library(readr)
+datas <- read_csv("datas.csv")
+View(datas)
+
+
+```
+
