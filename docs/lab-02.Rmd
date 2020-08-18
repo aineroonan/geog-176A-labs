@@ -196,7 +196,7 @@ ggsave(graph4, file = "../img/graph4.png")
 ```{r}
 #Question 3
 library(readr)
-datas <- read_csv("datas.csv")
+#datas <- read_csv("datas.csv")
 View(datas)
 
 
