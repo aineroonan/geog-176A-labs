@@ -1,0 +1,187 @@
+```{r}
+library(tidyverse)
+library(knitr)
+library(readxl)
+library(zoo)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+
+url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
+covid = read_csv(url)
+
+dat = covid %>% 
+  filter(state == "California") %>% 
+  group_by(county) %>% 
+  mutate(newCases = cases - lag(cases)) %>% 
+  ungroup() %>% 
+  filter(date == max(date)) 
+
+
+most_new_cases = dat %>% 
+  slice_max(newCases, n = 5) %>% 
+  select(county, newCases)
+
+most_cases = dat %>% 
+  slice_max(cases, n=5) %>% 
+  select(county,cases) 
+
+
+knitr::kable(most_new_cases,              
+        caption = "Most New Cases within California by County",
+        col.names = c("County", "New Cases"),
+        format.args = list(big.mark = ",")) %>% 
+    kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+
+knitr::kable(most_cases,              
+      caption = "Most Cases within California by County",
+      col.names = c("County", "New Cases"),
+      format.args = list(big.mark = ",")) %>% 
+    kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+
+
+library(readxl)
+pop <- read_excel("data/PopulationEstimates.xls", 
+    skip = 2)
+
+popo = 
+  pop %>% 
+  select(fips = "FIPStxt", state = "State", Area_Name, pop2019 = "POP_ESTIMATE_2019") %>% 
+  right_join(covid, by = c("fips"))
+
+cali = popo %>% 
+  filter(state.x == "CA") %>% 
+  group_by(county) %>% 
+  mutate(newCases = cases - lag(cases)) %>% 
+  mutate(cpc = cases/pop2019) %>% 
+  mutate(cpcnew = newCases/pop2019) %>% 
+  ungroup() %>% 
+  filter(date == max(date)) 
+ 
+mostNewCasesbypop = cali %>% 
+  slice_max(cpcnew, n = 5) %>% 
+  arrange(-cpcnew) %>% 
+  select(county, New_Cases_Per_Capita = cpc)
+
+mostCasesbypop = cali %>% 
+  slice_max(cpc, n=5) %>% 
+  arrange(-cpc) %>% 
+  select(county,Cases_Per_Capita = cpc) 
+
+knitr::kable(mostNewCasesbypop,              
+        caption = "Most New Cases Per Capita within California by County",
+        col.names = c("County", "New Cases Per Capita"),
+        format.args = list(big.mark = ",")) %>% 
+    kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+
+knitr::kable(mostCasesbypop,              
+      caption = "Most Cases per Capita within California by County",
+      col.names = c("County", "Cases per Capita"),
+      format.args = list(big.mark = ",")) %>% 
+    kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+
+today <- Sys.Date()
+fourteen = popo %>% 
+  filter(date > today - 14) %>% 
+  na.omit %>% 
+  group_by(fips) %>% 
+  mutate(newCases = cases - lag(cases)) %>% 
+  filter((newCases>0) == TRUE) %>% 
+  summarise(fips, cases, newCases, pop2019) %>% 
+  ungroup() %>% 
+  unique()
+  
+as.numeric(popo$cases)
+as.numeric(fourteen$newCases)
+as.numeric(fourteen$pop2019)
+totalCases14 = sum(fourteen$newCases)
+totalcases = sum(total$cases)
+totalpop = sum(fourteen$pop2019)
+New_Cases_Per_OHT = totalCases14/totalpop*100000  
+
+cali2 = popo %>% 
+  filter(state.x == "CA") %>% 
+  group_by(county) %>% 
+  mutate(newCases = cases - lag(cases)) %>% 
+  #mutate(cpc = cases/pop2019) %>% 
+  #mutate(cpcnew = newCases/pop2019) %>% 
+  filter(date > (today-14)) %>% 
+  mutate(cpcbyOHT14 = newCases/pop2019) %>% 
+  mutate(cpcOHTtot = cpcbyOHT14*100000) %>% 
+  summarise(newCases = sum(newCases), cases = sum(cases), county, cpcOHTtot = sum(cpcOHTtot))%>% 
+  ungroup() %>% 
+  unique
+
+safe = cali2 %>% 
+  filter(cpcOHTtot < 100)
+list(safe$county)
+length(safe$county)
+
+#### There are 591,216 new cases cases within California in the last 14 days and 621981 total cases.There are 14 counties that can be considered safe, as they have had less than 100 new cases per 100,000 residents over the past 14 days. 
+
+
+#Question 2
+four = covid %>% 
+  group_by(state, date) %>% 
+  summarize(cases = sum(cases)) %>% 
+  filter(state == "California" | state == "New York" | state == "Louisiana" | state == "Florida")%>%
+  ungroup() %>% 
+  group_by(state) %>% 
+  mutate(newCases = cases - lag(cases)) %>% 
+  mutate(avg = rollmean(newCases, 7, fill = NA, 
+                        align = "right"))
+### number of daily new cases (diff/lag) and the 7-day rolling mean. and compelling geoms, labels, colors, and themes
+
+graph =
+  four %>%
+  group_by(date) %>% 
+  ggplot(aes(x=date, y= newCases, color = state), y = free)+
+  geom_line(size = 0.5) +
+  facet_wrap(~state, scale = "free_y") +
+  ggthemes::theme_economist() +
+  labs(title = "Number of Daily New Cases by State",
+       x = "Date",
+       y = "New Cases",
+       caption = "Lab 02")
+  ggsave(graph, file = "img/graphDNC.png")
+
+graph2 =
+  four %>%
+  group_by(date) %>% 
+  ggplot(aes(x=date, y= avg, color = state))+
+  geom_line(size = 0.5) +
+  facet_wrap(~state, scale = "free_y") +
+  ggthemes::theme_economist() +
+  labs(title = "Average Weekly Increase in Cases by State",
+       x = "Date",
+       y = "Average Weekly Increases",
+       caption = "Lab 02")
+  ggsave(graph2, file = "img/graph2AWI.png")
+
+  ####The story of raw case counts can be misleading. To understand why, lets explore the cases per capita of each state. To do this, join the state COVID data to the USDA population estimates and calculate the newcases/totalpopulation. Additionally, calculate the 7-day rolling mean of the new cases per capita counts. This is a tricky task and will take some thought, time, and modification to existing code (most likley)!
+region = data.frame(state = state.name, State = state.abb)
+
+fourstates = four %>% 
+  left_join(region, by = "state") %>%
+  group_by(state, date) %>%
+  summarize(newCases, avg, state, State) %>% 
+  ungroup() 
+
+fourpop = popo %>% 
+  summarise(State = state.x, state.y, fips, pop2019, date, county, cases) %>% 
+  group_by(State,date()) %>% 
+  filter(State == "CA" | State == "NY" | State == "LA" | State == "FL") %>%
+  ungroup() %>% 
+  full_join(fourstates, by = "State")
+  
+summary = fourpop %>% 
+  group_by(date.x) %>% 
+  summarise(State, cases = sum(cases), tpop = sum(pop2019)) %>% 
+  ungroup() %>% 
+  group_by(State) %>% 
+  mutate(newCases = cases - lag(cases)) %>% 
+  mutate(avg = rollmean(newCases, 7, fill = NA, 
+                        align = "right"))
+
+  #mutate(NCpTP = newCases/pop)
+```
