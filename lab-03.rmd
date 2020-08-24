@@ -1,0 +1,230 @@
+```{r}
+# SPDS
+
+library(tidyverse)
+library(sf)
+library(units)
+
+# Data
+library(USAboundaries)
+library(rnaturalearth)
+
+# Visualization
+library(gghighlight)
+library(ggrepel)
+library(knitr)
+
+eqdc = '+proj=eqdc +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs'
+
+world = rnaturalearthdata::countries110 %>% 
+ st_as_sf(coords=c("lng", "lat"), crs = 4326) %>% 
+ st_transform(eqdc) %>% 
+ filter(admin %in% c("Canada", "United States of America", "Mexico")) 
+
+conus = USAboundaries::us_states() %>%
+ st_as_sf(coords=c("lng", "lat"), crs = 4326) %>%
+ st_transform(eqdc) %>% 
+ filter(!state_name %in% c("Puerto Rico", "Alaska", "Hawaii"))
+
+cities <- read_csv("~/github/geog-176A-labs/uscities.csv") %>% 
+ st_as_sf(coords = c("lng", "lat"), crs = 4326) %>% 
+ st_transform(eqdc) %>% 
+ filter(!state_id %in% c("AK", "HI", "PR")) %>% 
+  select(city, state_name, population)
+
+##question2 
+#2.1
+distancescon = st_union(conus$geometry) %>%
+  st_cast('MULTILINESTRING') 
+
+dist_to_us = cities %>% 
+  mutate(dist = st_distance(., distancescon), 
+         dist = set_units(dist, "km"),
+         dist = drop_units(dist)) %>% 
+  select(city, dist, state_name, population) 
+
+farfive = dist_to_us %>% 
+  slice_max(dist, n=5) %>% 
+  select(city, dist, state_name)
+
+graphfarfive = farfive %>% 
+      st_drop_geometry()
+
+
+knitr::kable(graphfarfive,              
+        caption = "Farthest Distances between Cities and the US Border",
+        format.args = list(big.mark = ",")) %>% 
+    kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+
+#2.2 
+dist2state = st_cast(conus, "MULTILINESTRING") %>% 
+  select(geometry) %>% 
+  st_combine() %>% 
+  st_transform(eqdc)
+
+distances = cities %>% 
+  mutate(dist = st_distance(., dist2state), 
+         dist = set_units(dist, "km")) 
+
+farthestfivetostates = distances %>% 
+  slice_max(dist, n = 5) %>% 
+  select(city, state_name, dist) 
+
+cities2 = farthestfivetostates %>% 
+    st_filter(conus, .predicate = st_intersects) %>% 
+      st_drop_geometry() 
+
+
+knitr::kable(cities2,              
+        caption = "Farthest Distances between Cities and State Lines",
+        format.args = list(big.mark = ",")) %>% 
+    kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+
+#2.3 
+mex = world %>% 
+  filter(admin %in% "Mexico")
+
+dists_to_mex_all = cities %>% 
+  mutate(dist = st_distance(cities, mex), 
+         dist = set_units(dist, "km"),
+         dist = drop_units(dist)) 
+
+dists_to_mex = dists_to_mex_all %>% 
+  slice_max(dist, n = 5) %>% 
+    st_drop_geometry() %>%
+  select(city, dist, state_name)
+
+knitr::kable(dists_to_mex,              
+        caption = "Farthest Distances between Cities and Mexico",
+        format.args = list(big.mark = ",")) %>% 
+    kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+
+#2.4
+can = world %>% 
+  filter(admin %in% "Canada")
+
+dists_to_can_all = cities %>% 
+  mutate(dist = st_distance(cities, can), 
+         dist = set_units(dist, "km"),
+         dist = drop_units(dist)) 
+
+dists_to_can = dists_to_can_all %>% 
+  slice_max(dist, n = 5) %>% 
+    st_drop_geometry() %>%
+  select(city, dist, state_name) 
+
+knitr::kable(dists_to_can,              
+        caption = "Farthest Distances between Cities and Canada",
+        format.args = list(big.mark = ",")) %>% 
+    kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+
+#question3
+
+#3.1 
+
+popcities = cities %>% 
+  slice_max(population, n = 10)
+
+ggplot() +
+  geom_sf(data = world) +
+  geom_sf(data = distancescon, size = 2)+
+  geom_sf(data = conus, lty = "dotted") +
+  geom_sf(data = popcities, color = "turquoise", size = 0.7)+
+  ggrepel::geom_label_repel(data = popcities, aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 3)
+
+```
+```{r}
+#3.2 
+#Create a map that colors USA cities by their distance from the national border. In addition, re-draw and label the 5 cities that are farthest from the border.
+
+
+ggplot()+
+  geom_sf(data = farfive, color = "yellow")+
+  geom_sf(data = distancescon)+
+  geom_sf(data = dist_to_us, aes(col = as.numeric(dist)), size = .1) +
+  scale_color_gradient(low = "yellow", high = "darkred")+
+  ggrepel::geom_label_repel(data = farfive,
+                            aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 1)
+  
+
+
+#3.3 
+#Create a map that colors USA cities by their distance from the nearest state border. In addition, re-draw and label the 5 cities that are farthest from any border.
+# cities2 = cities %>%
+#   mutate(dist_to_state = st_distance(cities, conus),
+#          dist_to_state = units::set_units(dist_to_state, "km"),
+#          dist_to_state = units::drop_units(dist_to_state)) %>% 
+
+ggplot()+
+  geom_sf(data = farthestfivetostates, color = "yellow")+
+  geom_sf(data = dist2state)+
+  geom_sf(data = distances, aes(col = as.numeric(dist)), size = .1) +
+  scale_color_gradient(low = "grey", high = "darkred")+
+  ggrepel::geom_label_repel(data = farthestfivetostates,
+                            aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 1)
+
+```
+```{r}
+#3.4 
+differences = cities %>%  
+  mutate( medium = abs(dists_to_can_all$dist - dists_to_mex_all$dist)) %>% 
+  select(medium, city, state_name, population)
+
+mostpop = differences %>% 
+  filter(medium<= 100) %>% 
+  slice_max(population, n = 5)
+
+
+ggplot()+
+ geom_sf(data = conus)+
+ geom_sf(data = differences, aes(col = medium))+
+ gghighlight(medium<=100) + 
+  geom_sf(data = mostpop, color = "yellow")
+
+```
+```{r}
+# 4.1 Quantifing Border Zone
+
+totalpop = sum(cities$population)
+
+citiesonborder = dist_to_us %>%
+  mutate(totalPop  = sum(population)) %>% 
+  filter(dist <= 160) %>%
+  st_drop_geometry() %>%
+  summarize(poponborder = sum(population),
+         percentage = poponborder/totalpop,
+         totalcities = n())
+
+knitr::kable(graphfarfive,              
+        caption = "Farthest Distances between Cities and the US Border",
+        format.args = list(big.mark = ",")) %>% 
+    kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+```
+
+```{r}
+# 4.2 and Extra Credit
+# Extra Credit (10): Instead of labeling the 10 most populous cites, label the most populous city in each state within the Danger Zone.
+
+citiesonborder2 = dist_to_us %>% 
+  filter(dist <= 160) %>% 
+  mutate(poponborder = sum(citiesonborder$population), 
+         percentage = poponborder/totalpop) 
+
+bigcities = citiesonborder2 %>% 
+  group_by(state_name) %>% 
+  filter(population == max(population))
+
+ggplot()+
+ geom_sf(data = conus)+
+ geom_sf(data = citiesonborder2, aes(geometry = geometry, col = as.numeric(dist)))+
+    scale_color_gradient(low = "orange", high = "darkred")+
+  geom_sf(data = bigcities, color = "yellow")
+
+```
+
