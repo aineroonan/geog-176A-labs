@@ -224,7 +224,10 @@ ggplot()+
  geom_sf(data = conus)+
  geom_sf(data = citiesonborder2, aes(geometry = geometry, col = as.numeric(dist)))+
     scale_color_gradient(low = "orange", high = "darkred")+
-  geom_sf(data = bigcities, color = "yellow")
+  geom_sf(data = bigcities, color = "yellow")+
+  ggrepel::geom_label_repel(data = bigcities, aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 3)
 
 ```
 
