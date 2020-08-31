@@ -1,0 +1,248 @@
+---
+title: "Geography 176A"
+author: "[AineRoonan](https://aineroonan.github.io)"
+subtitle: 'Lab 03: Tesselation: Point-in-Polygon'
+output:
+  html_document:
+    theme: journal
+---
+
+
+
+```{r}
+library(tidyverse)
+library(sf)
+library(units)
+library(USAboundaries)
+library(USAboundariesData)
+library(rnaturalearth)
+library(gghighlight)
+library(ggrepel)
+library(knitr)
+library(rmapshaper)
+library(leaflet)
+library(readxl)
+
+##question 1
+conus = USAboundaries::us_states() %>%
+ st_transform(5070) %>% 
+ filter(!state_name %in% c("Puerto Rico", "Alaska", "Hawaii"))
+
+conus_simp = ms_simplify(conus, keep = 0.05)
+ 
+get_conus = function(data, var){
+  filter(data, !get(var) %in%
+           c("Hawaii", "Puerto Rico", "Alaska"))
+}
+counties = st_transform(us_counties(), 5070) %>%
+  get_conus("state_name") %>% 
+  st_as_sf()
+ 
+county_centroid = st_centroid(counties) %>%
+  st_combine() %>%
+  st_cast("MULTIPOINT")
+
+# voroni 
+vgrid = st_voronoi(county_centroid) %>%
+  st_cast() %>%
+  st_as_sf %>%
+  mutate(id = 1:n())
+# triangulated 
+tgrid = st_triangulate(county_centroid) %>%
+  st_cast() %>%
+  st_as_sf() %>%
+  mutate(id = 1:n())
+# gridded, n = 70
+sqgrid = st_make_grid(conus_simp, n = c(70, 50)) %>%
+  st_as_sf() %>%
+  st_cast() %>%
+  mutate(id = 1:n())
+# hexagonal, n = 70
+hexgrid = st_make_grid(conus_simp, n = c(70, 50), square = FALSE) %>%
+  st_as_sf() %>%
+  st_cast() %>%
+  mutate(id = 1:n())
+
+plot_tess = function(data, title)
+  {ggplot() + 
+    geom_sf(data = data, fill = "white", col = "navy", size = .2) +   
+    theme_void() +
+    labs(title = title, caption = paste("This tesselation has:", nrow(data), "tiles" )) +
+    theme(plot.title = element_text(hjust = .5, color =  "Turquoise", face = "bold"))}
+# Original
+plot_tess(data = counties, "Original County Data")
+# Voroni
+vgrid = st_intersection(vgrid, st_union(conus_simp))
+plot_tess(vgrid, "Voronoi Coverage") +
+  geom_sf(data = county_centroid, col = "navy", size = 0.2)
+# Triangulated
+tgrid = st_intersection(tgrid, st_union(conus_simp))
+plot_tess(tgrid, "Triangulated Coverage") +
+  geom_sf(data = county_centroid, col = "navy", size = 0.2)
+# Gridded
+plot_tess(sqgrid, "Square Coverage")
+# Hexagonal
+plot_tess(hexgrid, "Hexagonal Coverage")
+```
+
+```{r, warning=F, message=F, echo=F}
+## Question 2
+alltess = function(data, title) {
+  area = st_area(data) %>% 
+    units::set_units("km2") %>%
+    units::drop_units() 
+  
+  data_frame(title, nrow(data), mean(area), sd(area), sum(area)) 
+}
+tess_summary = bind_rows(
+  alltess(counties, "Counties"),
+  alltess(vgrid, "Voroni"),
+  alltess(tgrid, "Triangulation"),
+  alltess(sqgrid, "Grid"),
+  alltess(hexgrid, "Hexagon"))
+knitr::kable(tess_summary, caption = "Tessellation Characteristics", col.names = c("Type","Elements","Mean Area (km2)","Standard Deviation Area (km2)","Coverage Area"), format.args = list(big.mark = ",", scientific = F))
+```
+#### Grid and Hexagon both have the lowest standard deviation by far (zero), and similarly have the largest coverage areas along with the lowest mean area and highest number of elements. I think these aspects all show a correlation. The grid and hexogon have standard deviation of zero, as they simply divide the US into equal-sized areas. The elements and area average inversely related, as the number of elements increases, the average area decreases. The higher number of elements, can have a probable correlation with accuracy or specificity, but is likely to also be correlated with an increase in processing time. 
+
+```{r, warning=F, message=F, echo=F}
+#question 3
+NID2019_U <- read_excel("~/github/geog-176A-labs/data/NID2019_U.xlsx") %>% 
+  filter(!is.na(LONGITUDE)) %>% 
+  filter(!is.na(LATITUDE))
+sf_NID2019_U <- NID2019_U%>% 
+  st_as_sf(coords = c("LONGITUDE", "LATITUDE"), crs = 4326) %>%
+  st_transform(5070)
+
+point_in_polygon3 = function(points, polygon, id){
+  st_join(polygon, points) %>%
+    st_drop_geometry() %>%
+    count(.data[[id]]) %>%
+    setNames(c(id, "n")) %>%
+    left_join(polygon, by = id) %>%
+    st_as_sf()
+}
+
+plot_pip = function(data, title){
+  ggplot() +
+    geom_sf(data = data, aes(fill = log(n)), alpha = .9, size = .2, col = NA) +
+    scale_fill_viridis_c() +
+    theme_void() +
+    theme(legend.position = 'none',
+          plot.title = element_text(face = "bold", color = "darkgreen", hjust = .5, size = 18)) +
+    labs(title = title,
+         caption = paste0(sum(data$n), " dams represented"))
+}
+
+point_in_polygon3(sf_NID2019_U, counties, "geoid") %>% 
+  plot_pip("Dams By County")
+
+point_in_polygon3(sf_NID2019_U, vgrid, "id") %>% 
+  plot_pip("Dams by Voronoi")
+
+point_in_polygon3(sf_NID2019_U, tgrid, "id") %>% 
+  plot_pip("Dams by Triangulation")
+
+point_in_polygon3(sf_NID2019_U, sqgrid, "id") %>% 
+  plot_pip("Dams by Grid")
+
+point_in_polygon3(sf_NID2019_U, hexgrid, "id") %>% 
+  plot_pip("Dams by Hexagon")
+```
+
+#### I believe that either the grid or hexagons would be the most likely to show accuracy and reliability as they are all equal area. For example, the Voroni has a standard deviation of over 100,000, meaning that there is a relatively significant difference between the sizes of tiles. The larger a tile is, the more likely it is to have more points in them, by simply understanding the basic laws of probability. I have decided to use the grid as it has a slightly larger number of elements and coverage area, as compared to its closest second, the hexagons. 
+
+
+```{r, warning=F, message=F, echo=F}
+#question 4
+dfcreate = function(abbr, purpose){
+  data_frame(abbr, purpose)
+}
+purpose_summary = bind_rows(
+  dfcreate("I", "Irrigation"),
+  dfcreate("H", "Hydroelectric"),
+  dfcreate("C", "Flood Control"),
+  dfcreate("N", "Navigation"),
+  dfcreate("S", "Water Supply"),
+  dfcreate("R", "Recreation"),
+  dfcreate("P", "Fire Protection"),
+  dfcreate("F", "Fish and Wildlife"),
+  dfcreate("D", "Debris Control"),
+  dfcreate("T", "Tailings"),
+  dfcreate("G", "Grade Stabilization"),
+  dfcreate("O", "Other"))
+dam_freq <- strsplit(sf_NID2019_U$PURPOSES, split = "") %>%
+  unlist() %>% 
+  table() %>% 
+  as.data.frame() %>% 
+  setNames(c("abbr", "count")) %>% 
+  left_join(purpose_summary) %>% 
+  mutate(lab = paste0(purpose, "\n(", abbr, ")"))
+
+ggplot(data = dam_freq) +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90))+
+  geom_col(aes(x = lab, y = count, fill = lab)) +
+  labs(title = "Number of Dams Serving Each Purpose",
+       x = "Number of Dams",
+       y = "Type")
+  
+```
+#### The first type of dam I chose was recreation, as I was curious about its locations for usage, as I would have assumed most types of dams would not be used for something as trivial as recreation. I next chose water supply, as to me, that seems like the most common use for a  dam, although that was not true by the above table, so I was curious as to where these would be congregated. The last two I chose were flood control and irrigation as I wanted to see how these two compared with one another. 
+
+
+```{r, warning=F, message=F, echo=F}
+r_sf_NID2019_U <- sf_NID2019_U %>% 
+  filter(grepl("R", sf_NID2019_U$PURPOSES) == TRUE)
+point_in_polygon3(r_sf_NID2019_U, sqgrid, "id") %>% 
+  plot_pip("Areas With Most Dams Used For Recreation") +
+  gghighlight(n > (mean(n) + sd(n)))
+  
+s_sf_NID2019_U <- sf_NID2019_U %>% 
+  filter(grepl("S", sf_NID2019_U$PURPOSES) == TRUE)
+point_in_polygon3(s_sf_NID2019_U, sqgrid, "id") %>% 
+  plot_pip("Areas With Most Dams Used For Water Supply") +
+  gghighlight(n > (mean(n) + sd(n)))
+
+c_sf_NID2019_U <- sf_NID2019_U %>% 
+  filter(grepl("C", sf_NID2019_U$PURPOSES) == TRUE)
+point_in_polygon3(c_sf_NID2019_U, sqgrid, "id") %>% 
+  plot_pip("Areas With Most Dams Used For Flood Control") +
+  gghighlight(n > (mean(n) + sd(n)))
+
+i_sf_NID2019_U <- sf_NID2019_U %>% 
+  filter(grepl("I", sf_NID2019_U$PURPOSES) == TRUE)
+point_in_polygon3(i_sf_NID2019_U, sqgrid, "id") %>% 
+  plot_pip("Areas With Most Dams Used For Irrigation") +
+  gghighlight(n > (mean(n) + sd(n)))
+```
+#### The most dams for recreational purposes seemed to be concentrated on the southern east coast, which I found surprising, but also seemed to make sense as that would be a very warm part of the country, especially during summer months, where recreational use to cool down would relatively popular. Concentrations of dams for water supply seem to be relatively spread out, which makes sense as water supply would be necessary for all populations. I think the flood control makes sense as it is concentrated in areas with a lot of rivers. I also think the irrigation makes sense as it is mostly in farmland. I feel like the grid system is relatively accurate, as it displays information with a uniform unit of size. 
+
+
+```{r, warning=F, message=F, echo=F}
+#extra credit
+missi <- read_sf("~/github/geog-176A-labs/data/majorrivers_0_0") %>% 
+  filter(SYSTEM == "Mississippi")
+
+max_storage = NID2019_U %>% 
+  filter(HAZARD == "H") %>% 
+  filter(!STATE %in% c("AK", "HI", "GU", "PR")) %>% 
+  filter(PURPOSES == "C") %>% 
+  group_by(STATE) %>% 
+  slice_max(NID_STORAGE, n=1)
+
+max_storage_labels <- max_storage %>% 
+  select(DAM_NAME, NID_STORAGE, PURPOSES, YEAR_COMPLETED)
+
+radius = max_storage %>% 
+  mutate(radius = NID_STORAGE / 1500000) %>% 
+  select(radius)
+
+avector <- as.vector(radius$radius)
+
+leaflet(data = max_storage) %>% 
+  addProviderTiles(providers$CartoDB) %>% 
+  addCircleMarkers(color = "red", fillOpacity = 1, stroke = FALSE, popup = leafpop::popupTable(max_storage_labels, feature.id = FALSE), radius = avector) %>% 
+  addPolylines(data = missi) 
+    
+```
+
