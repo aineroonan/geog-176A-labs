@@ -1,11 +1,20 @@
 ---
 title: "Geography 176A"
-author: "[AineRoonan](https://aineroonan.github.io)"
+author: "[Aine Roonan](https://aineroonan.github.io)"
 subtitle: 'Lab 05: Rasters and Remote Sensing'
 output:
   html_document:
-    theme: journal
+    theme: cerulean
 ---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	message = FALSE,
+	warning = FALSE,
+	out.width = "75%"
+)
+```
 
 ```{r}
 library(knitr)

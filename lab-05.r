@@ -6,7 +6,8 @@ library(getlandsat)
 library(mapview)
 library(osmdata)
 
-palo_and_area = read_csv('../geog176A-daily-exercises/uscities.csv') %>%
+#### question2, step 1
+palo_and_area = read_csv('~/github/geog176A-daily-exercises/uscities.csv') %>%
   filter(city == 'Palo') %>%
   st_as_sf(coords = c('lng','lat'), crs = 4326) %>%
   st_transform(5070) %>%
@@ -14,7 +15,8 @@ palo_and_area = read_csv('../geog176A-daily-exercises/uscities.csv') %>%
   st_bbox() %>%
   st_as_sfc()
 
-palo_tf = st_transform(palo_and_area, 4326) %>%
+palo_tf = palo_and_area %>%
+  st_transform(4326) %>%
   st_bbox()
 
 mapview(palo_tf)
@@ -29,4 +31,4 @@ lando = land %>%
          as.Date(acquisitionDate) == as.Date('2016-09-26'))
 
 
-write.csv(lando, file = "data/palo-flood-scene.csv")
+write.csv(lando, file = "~/github/geog-176A-labs/data/palo-flood-scene.csv")
