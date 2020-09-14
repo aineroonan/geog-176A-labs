@@ -1,19 +1,36 @@
+---
+title: "Geography 176A"
+author: "[AineRoonan](https://aineroonan.github.io)"
+subtitle: 'Lab 03'
+output:
+  html_document:
+    theme: cerulean
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	message = FALSE,
+	warning = FALSE,
+	out.width = "75%"
+)
+```
+
 ```{r}
 # SPDS
-
 library(tidyverse)
 library(sf)
 library(units)
-
 # Data
 library(USAboundaries)
 library(rnaturalearth)
-
 # Visualization
 library(gghighlight)
 library(ggrepel)
 library(knitr)
-
+```
+Question 1
+```{r}
 eqdc = '+proj=eqdc +lat_0=40 +lon_0=-96 +lat_1=20 +lat_2=60 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs'
 
 world = rnaturalearthdata::countries110 %>% 
@@ -26,13 +43,16 @@ conus = USAboundaries::us_states() %>%
  st_transform(eqdc) %>% 
  filter(!state_name %in% c("Puerto Rico", "Alaska", "Hawaii"))
 
-cities <- read_csv("~/github/geog-176A-labs/uscities.csv") %>% 
+cities <- read_csv("~/github/geog176A-daily-exercises/uscities.csv") %>% 
  st_as_sf(coords = c("lng", "lat"), crs = 4326) %>% 
  st_transform(eqdc) %>% 
  filter(!state_id %in% c("AK", "HI", "PR")) %>% 
   select(city, state_name, population)
+```
 
-##question2 
+
+Question 2
+```{r}
 #2.1
 distancescon = st_union(conus$geometry) %>%
   st_cast('MULTILINESTRING') 
@@ -117,11 +137,11 @@ knitr::kable(dists_to_can,
         caption = "Farthest Distances between Cities and Canada",
         format.args = list(big.mark = ",")) %>% 
     kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
+```
 
-#question3
-
+Question 3
+```{r}
 #3.1 
-
 popcities = cities %>% 
   slice_max(population, n = 10)
 
@@ -134,8 +154,6 @@ ggplot() +
                             stat = "sf_coordinates",
                             size = 3)
 
-```
-```{r}
 #3.2 
 #Create a map that colors USA cities by their distance from the national border. In addition, re-draw and label the 5 cities that are farthest from the border.
 
@@ -169,8 +187,6 @@ ggplot()+
                             stat = "sf_coordinates",
                             size = 1)
 
-```
-```{r}
 #3.4 
 differences = cities %>%  
   mutate( medium = abs(dists_to_can_all$dist - dists_to_mex_all$dist)) %>% 
@@ -186,8 +202,8 @@ ggplot()+
  geom_sf(data = differences, aes(col = medium))+
  gghighlight(medium<=100) + 
   geom_sf(data = mostpop, color = "yellow")
-
 ```
+Question 4
 ```{r}
 # 4.1 Quantifing Border Zone
 
@@ -207,6 +223,7 @@ knitr::kable(citiesonborder,
     kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
 ```
 
+Extra Credit
 ```{r}
 # 4.2 and Extra Credit
 # Extra Credit (10): Instead of labeling the 10 most populous cites, label the most populous city in each state within the Danger Zone.
@@ -224,7 +241,10 @@ ggplot()+
  geom_sf(data = conus)+
  geom_sf(data = citiesonborder2, aes(geometry = geometry, col = as.numeric(dist)))+
     scale_color_gradient(low = "orange", high = "darkred")+
-  geom_sf(data = bigcities, color = "yellow")
+  geom_sf(data = bigcities, color = "yellow")+
+  ggrepel::geom_label_repel(data = bigcities, aes(label = city, geometry = geometry),
+                            stat = "sf_coordinates",
+                            size = 3)
 
 ```
 
