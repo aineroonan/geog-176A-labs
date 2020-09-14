@@ -6,6 +6,7 @@ output:
   html_document:
     theme: cerulean
 ---
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
 	echo = FALSE,
@@ -195,9 +196,10 @@ ggplot(data = dam_freq) +
   labs(title = "Number of Dams Serving Each Purpose",
        x = "Number of Dams",
        y = "Type")
-  
-```
+ 
 #### The first type of dam I chose was recreation, as I was curious about its locations for usage, as I would have assumed most types of dams would not be used for something as trivial as recreation. I next chose water supply, as to me, that seems like the most common use for a  dam, although that was not true by the above table, so I was curious as to where these would be congregated. The last two I chose were flood control and irrigation as I wanted to see how these two compared with one another. 
+ 
+```
 
 
 ```{r, warning=F, message=F, echo=F}

@@ -223,10 +223,8 @@ knitr::kable(citiesonborder,
     kableExtra::kable_styling("striped", full_width = TRUE, font_size = 14)
 ```
 
-Extra Credit
+Extra Credit and 4.2
 ```{r}
-# 4.2 and Extra Credit
-# Extra Credit (10): Instead of labeling the 10 most populous cites, label the most populous city in each state within the Danger Zone.
 
 citiesonborder2 = dist_to_us %>% 
   filter(dist <= 160) %>% 
