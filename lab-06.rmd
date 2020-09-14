@@ -1,0 +1,122 @@
+---
+title: "Geography 176A"
+author: "[AineRoonan](https://aineroonan.github.io)"
+subtitle: 'Lab 06: Flood Risk in Mission Creek: Past, Present, Future'
+output:
+  html_document:
+    theme: cerulean
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	fig.align = "center",
+	message = FALSE,
+	warning = FALSE,
+	out.width = "75%"
+)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(tidyverse)
+library(sf)       
+library(raster)   
+library(fasterize) 
+library(whitebox)  
+library(gifski)
+library(knitr)
+library(osmdata)   
+library(elevatr) 
+```
+
+Collecting Data
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+basinboundary = read_sf("https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/USGS-11119750/basin")
+
+elevationbasin = elevatr::get_elev_raster(basinboundary, z = 13) %>% 
+  crop(basinboundary) %>% 
+  mask(basinboundary)
+
+elevationbasin = elevationbasin * 3.281
+
+writeRaster(elevationbasin, "~/github/geog-176A-labs/data/elevationbasin.tif", overwrite = T)
+
+elevation_raster = raster("~/github/geog-176A-labs/data/elevationbasin.tif")
+
+bb_basin = st_bbox(basinboundary) %>% 
+  st_as_sfc() %>% 
+  st_transform(4326)
+
+buildings = osmdata::opq(bb_basin) %>% 
+  add_osm_feature(key = "building") %>% 
+  osmdata_sf()
+
+buildings_point = buildings$osm_polygons %>% 
+  st_intersection(basinboundary) %>% 
+  st_transform(crs(basinboundary)) %>% 
+  st_centroid()
+
+buildings_poly = buildings$osm_polygons %>% 
+  st_intersection(basinboundary) %>% 
+  st_transform(crs(basinboundary))
+
+railstations = opq(bb_basin) %>% 
+  add_osm_feature(key = "railway", value = "station") %>% 
+  osmdata_sf()
+
+railways = railstations$osm_points %>% 
+  st_intersection(basinboundary) %>% 
+  st_transform(crs(basinboundary))
+
+osm.bns = opq(bb_basin) %>% 
+  add_osm_feature(key = "waterway", value = "stream") %>% 
+  osmdata_sf()
+
+osm.stream = osm.bns$osm_lines %>% 
+  st_intersection(basinboundary) %>% 
+  st_transform(crs(basinboundary))
+
+```
+
+Terrain Analysis
+```{r}
+wbt_hillshade('~/github/goeg-176A-labs/basin_elev.tif', '~/github/MCH.tif')
+
+```
+
+```{r}
+MCH = raster("~/github/MCH.tif")
+```
+
+
+```{r, warning=F, echo=F, message=F}
+plot(MCH, col = gray.colors(256, alpha = .5), main = "Hillshade Basin and Stream", legend = F, box = F) 
+
+plot(osm.stream$geometry, add = T,  col = "blue")
+
+plot(basinboundary$geometry, add = T)
+
+osm.stream_buffer = osm.stream %>% 
+  st_transform(5070) %>% 
+  st_buffer(10) %>% 
+  st_transform(4326)
+
+osm.stream_raster = fasterize::fasterize(osm.stream_buffer, elevationbasin)
+
+writeRaster(osm.stream_raster, "~/github/osm.stream-raster.tif", overwrite = T)
+```
+
+
+```{r, eval = F}
+wbt_breach_depressions("~/github/geog-176A-labs/data/elevationbasin.tif", "~/github/geog-176A-labs/data/breach_depressions.tif")
+```
+
+
+```{r}
+wbt_elevation_above_stream("~/github/breach_depressions.tif", "~/github/osm.stream-raster.tif", "~/github/hand-raster.tif")
+
+```
+```{r}
+#HAND = raster("~/github/hand-raster.tif")
+```
+Hello, I am incredibly sorry, but my last line of code would not run on my computer, I have been working on this one issue for well over an hour. I was having the same issues with reading in rasters earlier, but for some reason, those started working, but I have ran into the exact same issues here and I cannot figure out how to fix this issue. I will not have reliable access, if any, to wifi for the rest of the day and week, so this is where I have to end my lab. I am sorry for the unprofessional response. 
+
